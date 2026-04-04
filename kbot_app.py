@@ -5,7 +5,7 @@ from google import genai
 import requests
 
 # --- THE BOUNCER ---
-password_guess = st.text_input("Enter the secret password to unlock Kbot:", type="kblack")
+password_guess = st.text_input("Enter the secret password to unlock Kbot:", type="password")
 
 if password_guess != st.secrets["APP_PASSWORD"]:
     st.stop()
