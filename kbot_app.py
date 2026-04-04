@@ -5,13 +5,13 @@ from google import genai
 import requests
 
 # --- THE BOUNCER ---
-password_guess = st.text_input("Enter the secret password to unlock Kbot:", type="password")
+password_guess = st.text_input("Enter the secret password to unlock Kbot:", type="kblack")
 
 if password_guess != st.secrets["APP_PASSWORD"]:
     st.stop()
 
 # --- THE VAULT KEY ---
-API_KEY = st.secrets["GOOGLE_API_KEY"]
+API_KEY = st.secrets["AIzaSyBfEto6VXLeAwtRw7WN0Jd3e4dl43E175A"]
 client = genai.Client(api_key=API_KEY)
 
 # --- THE DISGUISE (Fixes the Yahoo Rate Limit Error) ---
