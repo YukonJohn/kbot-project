@@ -2,17 +2,29 @@ import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
 from google import genai
+import requests
 
-# --- 1. THE VAULT KEY ---
-API_KEY = "AIzaSyDwagugoCRri5iREUA400iXE-w4TwgzZP0"
+# --- THE BOUNCER ---
+password_guess = st.text_input("Enter the secret password to unlock Kbot:", type="password")
+
+if password_guess != st.secrets["APP_PASSWORD"]:
+    st.stop()
+
+# --- THE VAULT KEY ---
+API_KEY = st.secrets["GOOGLE_API_KEY"]
 client = genai.Client(api_key=API_KEY)
 
-# --- 2. KBOT'S FACE & TABS ---
+# --- THE DISGUISE (Fixes the Yahoo Rate Limit Error) ---
+safe_session = requests.Session()
+safe_session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/115.0.0.0 Safari/537.36'
+})
+
+# --- KBOT'S FACE & TABS ---
 st.set_page_config(page_title="Kbot Assistant", page_icon="📈", layout="wide") 
 st.title("🤖 Kbot: The Ultimate Financial Assistant")
 st.write("Welcome, Kevin!")
 
-# Create the THREE tabs
 tab1, tab2, tab3 = st.tabs(["📊 Analyzer (Stocks & ETFs)", "🚀 Market Trends", "🌍 Global Pulse (Bonds & Forex)"])
 
 # ==========================================
@@ -28,12 +40,20 @@ with tab1:
             all_company_data_for_ai = ""
 
             for ticker_symbol in ticker_list:
-                stock = yf.Ticker(ticker_symbol)
-                info = stock.info
-                company_name = info.get('longName', ticker_symbol)
-                current_price = info.get('currentPrice', 'Unknown')
-                industry = info.get('industry', 'ETF / Fund' if 'ETF' in str(info.get('quoteType', '')) else 'Unknown')
+                # We put the disguise on Kbot right here
+                stock = yf.Ticker(ticker_symbol, session=safe_session)
                 
+                try:
+                    info = stock.info
+                    company_name = info.get('longName', ticker_symbol)
+                    current_price = info.get('currentPrice', 'Unknown')
+                    industry = info.get('industry', 'ETF / Fund' if 'ETF' in str(info.get('quoteType', '')) else 'Unknown')
+                except:
+                    # A backup plan just in case Yahoo is still stubborn
+                    company_name = ticker_symbol
+                    current_price = 'Unknown'
+                    industry = 'Unknown'
+
                 raw_news = stock.news
                 news_headlines = ""
                 if raw_news:
@@ -47,7 +67,6 @@ with tab1:
                 
                 try:
                     historical_data = stock.history(period="1y")
-                    # If current price is missing, grab the last close price from history
                     if current_price == 'Unknown' and not historical_data.empty:
                         current_price = round(historical_data['Close'].iloc[-1], 2)
                     
@@ -87,7 +106,7 @@ with tab2:
             sectors = {"Technology": "XLK", "Healthcare": "XLV", "Finance": "XLF", "Energy": "XLE"}
             sector_data = ""
             for sector_name, ticker in sectors.items():
-                stock = yf.Ticker(ticker)
+                stock = yf.Ticker(ticker, session=safe_session)
                 raw_news = stock.news
                 news_headlines = ""
                 if raw_news:
@@ -108,7 +127,7 @@ with tab2:
             st.write(response.text)
 
 # ==========================================
-# TAB 3: GLOBAL PULSE (NEW!)
+# TAB 3: GLOBAL PULSE
 # ==========================================
 with tab3:
     st.subheader("Global Pulse: Macroeconomics")
@@ -116,8 +135,6 @@ with tab3:
 
     if st.button("Check Global Pulse"):
         with st.spinner("Kbot is checking bond yields and currency exchanges..."):
-            
-            # The tickers for 10-Year Bond, Euro/USD, and USD/CAD
             macro_symbols = {
                 "US 10-Year Treasury Yield": "^TNX",
                 "Euro to US Dollar": "EURUSD=X",
@@ -127,14 +144,15 @@ with tab3:
             macro_data_for_ai = ""
 
             for name, symbol in macro_symbols.items():
-                data = yf.Ticker(symbol)
+                data = yf.Ticker(symbol, session=safe_session)
                 try:
-                    # Get the most recent closing price/rate
                     history = data.history(period="1d")
-                    current_rate = round(history['Close'].iloc[-1], 3)
-                    
-                    st.write(f"**{name}:** {current_rate}")
-                    macro_data_for_ai += f"{name}: {current_rate}\n"
+                    if not history.empty:
+                        current_rate = round(history['Close'].iloc[-1], 3)
+                        st.write(f"**{name}:** {current_rate}")
+                        macro_data_for_ai += f"{name}: {current_rate}\n"
+                    else:
+                        st.write(f"**{name}:** Data currently unavailable")
                 except:
                     st.write(f"**{name}:** Data currently unavailable")
 
