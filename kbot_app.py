@@ -10,23 +10,21 @@ if "APP_PASSWORD" in st.secrets:
     if password_guess != st.secrets["APP_PASSWORD"]:
         st.stop()
 else:
-    st.error("Vault Error: APP_PASSWORD not found.")
+    st.error("Vault Error: APP_PASSWORD not found in Streamlit Secrets.")
     st.stop()
 
 # --- 2. THE VAULT KEY ---
 if "GOOGLE_API_KEY" in st.secrets:
-    # Using the stable 2026 model name
     client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("Vault Error: GOOGLE_API_KEY not found.")
+    st.error("Vault Error: GOOGLE_API_KEY not found in Streamlit Secrets.")
     st.stop()
 
-# --- 3. KBOT'S FACE & THE TABS ---
+# --- 3. KBOT'S FACE & TABS ---
 st.set_page_config(page_title="Kbot Assistant", layout="wide") 
 st.title("🤖 Kbot: The Ultimate Financial Assistant")
 st.write("Welcome, Kevin!")
 
-# RESTORING YOUR TABS
 tab1, tab2, tab3 = st.tabs(["📊 Analyzer", "🚀 Market Trends", "🌍 Global Pulse"])
 
 # ==========================================
@@ -34,11 +32,10 @@ tab1, tab2, tab3 = st.tabs(["📊 Analyzer", "🚀 Market Trends", "🌍 Global 
 # ==========================================
 with tab1:
     st.subheader("Head-to-Head Analyzer")
-    # You can now enter multiple tickers again (e.g., AAPL, RY.TO, TD.TO)
-    ticker_input = st.text_input("Enter Tickers (separated by commas):", "RY.TO, TD.TO")
+    ticker_input = st.text_input("Enter Tickers (separated by commas, e.g., AAPL, RY.TO):", "RY.TO")
 
     if st.button("Analyze with Kbot"):
-        with st.spinner("Kbot is pulling the records..."):
+        with st.spinner("Kbot is pulling the data..."):
             ticker_list = [t.strip().upper() for t in ticker_input.split(',')]
             all_summary_data = ""
 
@@ -49,12 +46,9 @@ with tab1:
                     
                     if not hist.empty:
                         price = round(hist['Close'].iloc[-1], 2)
-                        st.success(f"✅ Found: {sym} at ${price}")
-                        
-                        # Add to the data Kbot will read later
                         all_summary_data += f"Stock: {sym} | Current Price: ${price}\n"
-
-                        # Draw the chart for this specific stock
+                        st.success(f"✅ Found data for {sym} (${price})")
+                        
                         fig = go.Figure(data=[go.Candlestick(
                             x=hist.index, open=hist['Open'], high=hist['High'], 
                             low=hist['Low'], close=hist['Close']
@@ -62,47 +56,44 @@ with tab1:
                         fig.update_layout(title=f"1-Year Trend: {sym}", template="plotly_dark", height=350)
                         st.plotly_chart(fig, use_container_width=True)
                     else:
-                        st.warning(f"Could not find live data for {sym}.")
+                        st.warning(f"⚠️ Yahoo is blocking the connection for {sym}. Kbot will use internal memory.")
                 except:
-                    st.warning(f"Yahoo Finance connection failed for {sym}.")
+                    st.warning(f"⚠️ Could not reach market for {sym}.")
 
-            # If we found any data, Kbot writes one big summary for all of them
-            if all_summary_data:
-                try:
-                    prompt = f"You are Kbot. Kevin wants a comparison and long-term outlook for these assets: {all_summary_data}. Identify which is the safer long-term hold."
-                    resp = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
-                    st.divider()
-                    st.subheader("🧠 Kbot's Executive Summary")
-                    st.write(resp.text)
-                except Exception as e:
+            # THE AI SUMMARY WITH SAFETY VALVE
+            try:
+                # If no market data, Kbot uses general knowledge
+                prompt_content = f"Analyze these assets for Kevin: {all_summary_data if all_summary_data else ticker_input}"
+                resp = client.models.generate_content(model='gemini-2.0-flash', contents=prompt_content)
+                st.divider()
+                st.subheader("🧠 Kbot's Executive Summary")
+                st.write(resp.text)
+            except Exception as e:
+                if "429" in str(e):
+                    st.error("🐢 **Rate Limit:** Kbot is thinking too fast for the free version. Please wait 60 seconds and try again.")
+                else:
                     st.error(f"AI Snag: {e}")
 
 # ==========================================
-# TAB 2: RESTORING MARKET TRENDS
+# TAB 2: MARKET TRENDS
 # ==========================================
 with tab2:
-    st.subheader("🚀 Global Market Trends")
-    st.write("Kbot will scan the horizon for the best growth opportunities in 2026.")
     if st.button("Generate Trend Report"):
-        with st.spinner("Scanning the horizon..."):
+        with st.spinner("Scanning..."):
             try:
-                prompt = "Give Kevin a report on the 3 strongest market sectors for long-term growth right now. Mention AI, Energy, and Healthcare."
-                resp = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+                resp = client.models.generate_content(model='gemini-2.0-flash', contents="Kevin wants to know 3 strong growth sectors for 2026.")
                 st.write(resp.text)
-            except:
-                st.error("AI connection lost. Try again in a minute.")
+            except Exception as e:
+                st.error("AI is busy. Please wait a minute.")
 
 # ==========================================
-# TAB 3: RESTORING GLOBAL PULSE
+# TAB 3: GLOBAL PULSE
 # ==========================================
 with tab3:
-    st.subheader("🌍 Global Pulse & Macro")
-    st.write("Check how interest rates and the economy affect Kevin's portfolio.")
     if st.button("Check Global Health"):
-        with st.spinner("Checking interest rates..."):
+        with st.spinner("Checking rates..."):
             try:
-                prompt = "Explain to Kevin in 2 simple paragraphs how the current 2026 interest rates in Canada and the US affect his long-term stock holdings."
-                resp = client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+                resp = client.models.generate_content(model='gemini-2.0-flash', contents="Explain to Kevin how 2026 interest rates affect his stock portfolio.")
                 st.write(resp.text)
-            except:
-                st.error("AI connection lost.")
+            except Exception as e:
+                st.error("AI is busy. Please wait a minute.")
