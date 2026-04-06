@@ -28,14 +28,17 @@ st.title("🤖 Kbot: The Ultimate Financial Assistant")
 st.write("Welcome, Kevin!")
 
 # ====================== TABS ======================
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Analyzer", 
     "🚀 Market Trends", 
     "🌍 Global Pulse", 
-    "⛏️ Gold & Mining Scanner"
+    "⛏️ Gold & Mining Scanner",
+    "📈 ETF Scanner"
 ])
 
-# TAB 1: Analyzer (your original)
+# ==========================================
+# TAB 1: ANALYZER (Your original)
+# ==========================================
 with tab1:
     ticker_input = st.text_input("Enter Tickers (e.g., AAPL, RY.TO, GOLD):", "RY.TO")
 
@@ -77,7 +80,9 @@ with tab1:
                 except Exception as e:
                     st.error(f"AI Error: {e}")
 
-# TAB 2 & 3 (simple)
+# ==========================================
+# TAB 2: Market Trends
+# ==========================================
 with tab2:
     if st.button("Scan Trends"):
         try:
@@ -86,6 +91,9 @@ with tab2:
         except:
             st.info("AI is resting. Try again in 60 seconds.")
 
+# ==========================================
+# TAB 3: Global Pulse
+# ==========================================
 with tab3:
     if st.button("Check Global"):
         try:
@@ -95,11 +103,11 @@ with tab3:
             st.info("AI is resting. Try again in 60 seconds.")
 
 # ==========================================
-# TAB 4: GOLD & MINING SCANNER (Simplified & Stable)
+# TAB 4: GOLD & MINING SCANNER
 # ==========================================
 with tab4:
     st.subheader("⛏️ Gold, Silver & Mining Scanner")
-    st.caption("Updates every 60 seconds • Basic momentum scoring")
+    st.caption("Updates every 60 seconds • Momentum + Volume scoring")
 
     mining_tickers = [
         "GOLD", "NEM", "AEM", "WPM", "FNV", "GFI", "AU", "KGC", "PAAS", "AG",
@@ -107,7 +115,7 @@ with tab4:
         "BTG", "EGO", "OR", "NG", "IAU", "PHYS"
     ]
 
-    if st.button("🚀 Start Smart Scanner"):
+    if st.button("🚀 Start Gold & Mining Scanner"):
         placeholder = st.empty()
         
         while True:
@@ -128,18 +136,14 @@ with tab4:
                         prev_price = hist['Close'].iloc[-6] if len(hist) > 5 else current_price
                         change_pct = ((current_price - prev_price) / prev_price) * 100
                         
-                        # Simple but effective scoring for miners
                         ema20 = hist['Close'].ewm(span=20).mean().iloc[-1]
                         avg_volume = hist['Volume'].rolling(20).mean().iloc[-1]
                         volume_surge = hist['Volume'].iloc[-1] > avg_volume * 1.8
                         
                         score = 0
-                        if current_price > ema20: 
-                            score += 45
-                        if volume_surge: 
-                            score += 35
-                        if change_pct > 0.5: 
-                            score += 20
+                        if current_price > ema20: score += 45
+                        if volume_surge: score += 35
+                        if change_pct > 0: score += 20
                         
                         results.append({
                             "Ticker": ticker,
@@ -155,15 +159,76 @@ with tab4:
                     df = pd.DataFrame(results)
                     df = df.sort_values(by="Score", ascending=False).reset_index(drop=True)
                     
-                    # Simple clean table (no fancy styling that causes errors)
-                    st.dataframe(
-                        df,
-                        use_container_width=True,
-                        height=650
-                    )
+                    st.dataframe(df, use_container_width=True, height=650)
                     
                     top_picks = df.head(5)["Ticker"].tolist()
                     st.success(f"**Top 5 Right Now:** {', '.join(top_picks)}")
+                else:
+                    st.warning("Waiting for data...")
+
+            time.sleep(60)
+
+# ==========================================
+# TAB 5: ETF SCANNER
+# ==========================================
+with tab5:
+    st.subheader("📈 ETF Scanner")
+    st.caption("Updates every 60 seconds • Strong ETFs including Gold & Silver")
+
+    etf_tickers = [
+        "GLD", "SLV", "GDX", "GDXJ", "SILJ", "IAU", "PHYS", "SGOL", "BAR", "AAAU",
+        "SPY", "QQQ", "IWM", "VTI", "VOO", "VUG", "VTV", "XLK", "XLF", "XLE",
+        "XLV", "XLI", "XLU", "XLRE", "XLY", "XLP", "XLC", "XLB", "XOP", "URA"
+    ]
+
+    if st.button("🚀 Start ETF Scanner"):
+        placeholder = st.empty()
+        
+        while True:
+            with placeholder.container():
+                st.write(f"**Last refreshed:** {datetime.now().strftime('%H:%M:%S')}")
+
+                results = []
+                
+                for ticker in etf_tickers:
+                    try:
+                        stock = yf.Ticker(ticker)
+                        hist = stock.history(period="3d", interval="5m")
+                        
+                        if len(hist) < 15:
+                            continue
+                        
+                        current_price = hist['Close'].iloc[-1]
+                        prev_price = hist['Close'].iloc[-6] if len(hist) > 5 else current_price
+                        change_pct = ((current_price - prev_price) / prev_price) * 100
+                        
+                        ema20 = hist['Close'].ewm(span=20).mean().iloc[-1]
+                        volume_surge = hist['Volume'].iloc[-1] > hist['Volume'].rolling(20).mean().iloc[-1] * 1.5
+                        
+                        score = 0
+                        if current_price > ema20: score += 40
+                        if volume_surge: score += 25
+                        if change_pct > 0.3: score += 25
+                        if change_pct > 1.0: score += 10
+                        
+                        results.append({
+                            "Ticker": ticker,
+                            "Price": round(current_price, 4),
+                            "Change %": round(change_pct, 2),
+                            "Score": int(score),
+                            "Volume Surge": "Yes" if volume_surge else "No"
+                        })
+                    except:
+                        continue
+                
+                if results:
+                    df = pd.DataFrame(results)
+                    df = df.sort_values(by="Score", ascending=False).reset_index(drop=True)
+                    
+                    st.dataframe(df, use_container_width=True, height=700)
+                    
+                    top_picks = df.head(6)["Ticker"].tolist()
+                    st.success(f"**Top 6 ETFs Right Now:** {', '.join(top_picks)}")
                 else:
                     st.warning("Waiting for data...")
 
