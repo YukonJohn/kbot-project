@@ -5,6 +5,8 @@ import time
 from datetime import datetime
 import plotly.graph_objects as go
 from google import genai
+import json
+import os
 
 # ====================== PASSWORD & GEMINI ======================
 password_guess = st.text_input("Enter the secret password to unlock Kbot:", type="password")
@@ -22,11 +24,24 @@ else:
     st.error("Vault Error: GOOGLE_API_KEY not found.")
     st.stop()
 
+# ====================== PERSISTENT PORTFOLIO ======================
+PORTFOLIO_FILE = "kevin_portfolio.json"
+
+if "my_portfolio" not in st.session_state:
+    if os.path.exists(PORTFOLIO_FILE):
+        with open(PORTFOLIO_FILE, "r") as f:
+            st.session_state.my_portfolio = json.load(f)
+    else:
+        st.session_state.my_portfolio = []
+
+def save_portfolio():
+    with open(PORTFOLIO_FILE, "w") as f:
+        json.dump(st.session_state.my_portfolio, f)
+
 st.set_page_config(page_title="Kbot Assistant", layout="wide")
 st.title("🤖 Kbot: The Ultimate Financial Assistant")
 st.write("Welcome, Kevin!")
 
-# ====================== TABS ======================
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Analyzer", 
     "🚀 Market Trends", 
@@ -37,7 +52,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1-3: Your original tabs (kept simple)
+# TAB 1-3: Original tabs (kept as-is)
 # ==========================================
 with tab1:
     ticker_input = st.text_input("Enter Tickers (e.g., AAPL, RY.TO, GOLD):", "RY.TO")
@@ -91,9 +106,9 @@ with tab3:
 # ==========================================
 with tab4:
     st.subheader("⛏️ Gold, Silver & Mining Scanner")
-    st.caption("Smart scoring: EMA + Volume + Relative Strength")
+    st.caption("Advanced scoring: EMA • Volume Surge • Relative Strength vs GDX")
 
-    mining_tickers = ["GOLD", "NEM", "AEM", "WPM", "FNV", "GFI", "AU", "KGC", "PAAS", "AG", "HL", "CDE", "EXK", "MAG", "SIL", "GDX", "GDXJ", "SILJ", "GLD", "SLV", "BTG", "EGO", "OR", "NG", "IAU", "PHYS"]
+    mining_tickers = ["GOLD","NEM","AEM","WPM","FNV","GFI","AU","KGC","PAAS","AG","HL","CDE","EXK","MAG","SIL","GDX","GDXJ","SILJ","GLD","SLV","BTG","EGO","OR","NG","IAU","PHYS"]
 
     if st.button("🚀 Start Gold & Mining Scanner"):
         placeholder = st.empty()
@@ -120,17 +135,24 @@ with tab4:
                         score = 0
                         if price > ema20: score += 35
                         if vol_surge: score += 30
-                        if rel_strength > 0: score += 25
-                        if change > 1.0: score += 10
+                        if rel_strength > 0.5: score += 25
+                        if change > 1.5: score += 10
 
-                        results.append({"Ticker": ticker, "Price": round(price,4), "Change %": round(change,2), "Rel vs GDX": round(rel_strength,2), "Score": int(score)})
+                        results.append({
+                            "Ticker": ticker,
+                            "Price": round(price,4),
+                            "Change %": round(change,2),
+                            "Rel vs GDX": round(rel_strength,2),
+                            "Score": int(score)
+                        })
                     except:
                         continue
 
                 if results:
                     df = pd.DataFrame(results).sort_values("Score", ascending=False)
                     st.dataframe(df, use_container_width=True, height=650)
-                    st.success(f"**Top Picks:** {', '.join(df.head(5)['Ticker'].tolist())}")
+                    top_picks = df.head(5)["Ticker"].tolist()
+                    st.success(f"**Top 5 Right Now:** {', '.join(top_picks)}")
             time.sleep(60)
 
 # ==========================================
@@ -138,7 +160,7 @@ with tab4:
 # ==========================================
 with tab5:
     st.subheader("📈 ETF Scanner")
-    st.caption("Smart scoring for ETFs")
+    st.caption("Advanced scoring for ETFs")
 
     etf_tickers = ["GLD","SLV","GDX","GDXJ","SILJ","IAU","PHYS","SPY","QQQ","IWM","VTI","VOO","VUG","VTV","XLK","XLF","XLE","XLV","XLI","XLU"]
 
@@ -174,47 +196,56 @@ with tab5:
             time.sleep(60)
 
 # ==========================================
-# TAB 6: MY PORTFOLIO
+# TAB 6: MY PORTFOLIO (Persistent + Smart Monitoring)
 # ==========================================
 with tab6:
     st.subheader("📁 My Personal Portfolio")
 
-    if "my_portfolio" not in st.session_state:
-        st.session_state.my_portfolio = []
+    col1, col2 = st.columns([3,1])
+    with col1:
+        new_ticker = st.text_input("Add Ticker (e.g. GOLD, GDX, NEM):", key="add_ticker")
+    with col2:
+        if st.button("Add"):
+            ticker_upper = new_ticker.strip().upper()
+            if ticker_upper and ticker_upper not in st.session_state.my_portfolio:
+                st.session_state.my_portfolio.append(ticker_upper)
+                save_portfolio()
+                st.success(f"Added {ticker_upper}")
+            else:
+                st.warning("Already in portfolio or empty")
 
-    new_ticker = st.text_input("Add Ticker to Portfolio (e.g. GOLD, GDX, SPY):")
-    if st.button("Add to Portfolio"):
-        if new_ticker.strip().upper() not in st.session_state.my_portfolio:
-            st.session_state.my_portfolio.append(new_ticker.strip().upper())
-            st.success(f"Added {new_ticker.upper()}")
-        else:
-            st.warning("Already in portfolio")
-
-    if st.button("Clear Portfolio"):
+    if st.button("Clear All Portfolio"):
         st.session_state.my_portfolio = []
+        save_portfolio()
         st.success("Portfolio cleared")
 
-    if st.session_state.my_portfolio:
-        if st.button("Monitor My Portfolio"):
-            placeholder = st.empty()
-            while True:
-                with placeholder.container():
-                    st.write(f"**Last refreshed:** {datetime.now().strftime('%H:%M:%S')}")
-                    results = []
-                    for ticker in st.session_state.my_portfolio:
-                        try:
-                            hist = yf.Ticker(ticker).history(period="3d", interval="5m")
-                            if len(hist) < 10: continue
-                            price = hist['Close'].iloc[-1]
-                            change = ((price - hist['Close'].iloc[-6]) / hist['Close'].iloc[-6]) * 100
-                            ema20 = hist['Close'].ewm(span=20).mean().iloc[-1]
-                            score = 40 if price > ema20 else 0
-                            results.append({"Ticker": ticker, "Price": round(price,4), "Change %": round(change,2), "Score": int(score)})
-                        except:
-                            continue
-                    if results:
-                        df = pd.DataFrame(results).sort_values("Score", ascending=False)
-                        st.dataframe(df, use_container_width=True)
-                time.sleep(60)
-    else:
-        st.info("Add some tickers to your portfolio above to start monitoring.")
+    st.write("**Current Portfolio:**", ", ".join(st.session_state.my_portfolio) if st.session_state.my_portfolio else "Empty")
+
+    if st.session_state.my_portfolio and st.button("🚀 Monitor My Portfolio"):
+        placeholder = st.empty()
+        while True:
+            with placeholder.container():
+                st.write(f"**Last refreshed:** {datetime.now().strftime('%H:%M:%S')}")
+                results = []
+                for ticker in st.session_state.my_portfolio:
+                    try:
+                        hist = yf.Ticker(ticker).history(period="5d", interval="5m")
+                        if len(hist) < 15: continue
+                        price = hist['Close'].iloc[-1]
+                        change = ((price - hist['Close'].iloc[-6]) / hist['Close'].iloc[-6]) * 100
+                        ema20 = hist['Close'].ewm(span=20).mean().iloc[-1]
+                        score = 0
+                        if price > ema20: score += 40
+                        if change > 0.5: score += 30
+                        if change > 1.5: score += 30
+
+                        results.append({"Ticker": ticker, "Price": round(price,4), "Change %": round(change,2), "Score": int(score)})
+                    except:
+                        continue
+
+                if results:
+                    df = pd.DataFrame(results).sort_values("Score", ascending=False)
+                    st.dataframe(df, use_container_width=True, height=600)
+                    top = df.head(3)["Ticker"].tolist()
+                    st.success(f"**Strongest in Portfolio:** {', '.join(top)}")
+            time.sleep(60)
