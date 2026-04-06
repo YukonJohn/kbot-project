@@ -1,4 +1,33 @@
-# Create 4 tabs (this must match the "with tabX:" blocks below)
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import time
+from datetime import datetime
+import plotly.graph_objects as go
+from google import genai
+
+# ====================== PASSWORD PROTECTION ======================
+password_guess = st.text_input("Enter the secret password to unlock Kbot:", type="password")
+
+if "APP_PASSWORD" in st.secrets:
+    if password_guess != st.secrets["APP_PASSWORD"]:
+        st.stop()
+else:
+    st.error("Vault Error: APP_PASSWORD not found.")
+    st.stop()
+
+# ====================== GEMINI CLIENT ======================
+if "GOOGLE_API_KEY" in st.secrets:
+    client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
+else:
+    st.error("Vault Error: GOOGLE_API_KEY not found.")
+    st.stop()
+
+st.set_page_config(page_title="Kbot Assistant", layout="wide")
+st.title("🤖 Kbot: The Ultimate Financial Assistant")
+st.write("Welcome, Kevin!")
+
+# ====================== TABS ======================
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 Analyzer", 
     "🚀 Market Trends", 
@@ -7,7 +36,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: ANALYZER (your original code)
+# TAB 1: ANALYZER (Original)
 # ==========================================
 with tab1:
     ticker_input = st.text_input("Enter Tickers (e.g., AAPL, RY.TO, GOLD):", "RY.TO")
@@ -51,7 +80,7 @@ with tab1:
                     st.error(f"AI Error: {e}")
 
 # ==========================================
-# TAB 2 & 3 (keep your original simple ones)
+# TAB 2: Market Trends
 # ==========================================
 with tab2:
     if st.button("Scan Trends"):
@@ -61,6 +90,9 @@ with tab2:
         except:
             st.info("AI is resting. Try again in 60 seconds.")
 
+# ==========================================
+# TAB 3: Global Pulse
+# ==========================================
 with tab3:
     if st.button("Check Global"):
         try:
@@ -70,11 +102,11 @@ with tab3:
             st.info("AI is resting. Try again in 60 seconds.")
 
 # ==========================================
-# TAB 4: GOLD & MINING SCANNER (Improved with basic scoring)
+# TAB 4: GOLD & MINING SCANNER (Smart Version)
 # ==========================================
 with tab4:
     st.subheader("⛏️ Gold, Silver & Mining Scanner")
-    st.caption("Updates every 60 seconds • Momentum + Volume scoring for miners")
+    st.caption("Updates every 60 seconds • Momentum + Volume scoring")
 
     mining_tickers = [
         "GOLD", "NEM", "AEM", "WPM", "FNV", "GFI", "AU", "KGC", "PAAS", "AG",
@@ -103,7 +135,7 @@ with tab4:
                         prev_price = hist['Close'].iloc[-6] if len(hist) > 5 else current_price
                         change_pct = ((current_price - prev_price) / prev_price) * 100
                         
-                        # Simple momentum + volume score
+                        # Basic scoring
                         ema20 = hist['Close'].ewm(span=20).mean().iloc[-1]
                         avg_volume = hist['Volume'].rolling(20).mean().iloc[-1]
                         volume_surge = hist['Volume'].iloc[-1] > avg_volume * 1.8
@@ -131,7 +163,7 @@ with tab4:
                         df.style.background_gradient(subset=["Score"], cmap="viridis")
                         .format({"Price": "${:.4f}", "Change %": "{:.2f}%"}),
                         use_container_width=True,
-                        height=600
+                        height=650
                     )
                     
                     top_picks = df.head(5)["Ticker"].tolist()
