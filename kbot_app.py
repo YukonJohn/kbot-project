@@ -35,9 +35,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "⛏️ Gold & Mining Scanner"
 ])
 
-# ==========================================
-# TAB 1: ANALYZER (Original)
-# ==========================================
+# TAB 1: Analyzer (your original)
 with tab1:
     ticker_input = st.text_input("Enter Tickers (e.g., AAPL, RY.TO, GOLD):", "RY.TO")
 
@@ -79,9 +77,7 @@ with tab1:
                 except Exception as e:
                     st.error(f"AI Error: {e}")
 
-# ==========================================
-# TAB 2: Market Trends
-# ==========================================
+# TAB 2 & 3 (simple)
 with tab2:
     if st.button("Scan Trends"):
         try:
@@ -90,9 +86,6 @@ with tab2:
         except:
             st.info("AI is resting. Try again in 60 seconds.")
 
-# ==========================================
-# TAB 3: Global Pulse
-# ==========================================
 with tab3:
     if st.button("Check Global"):
         try:
@@ -102,11 +95,11 @@ with tab3:
             st.info("AI is resting. Try again in 60 seconds.")
 
 # ==========================================
-# TAB 4: GOLD & MINING SCANNER (Smart Version)
+# TAB 4: GOLD & MINING SCANNER (Simplified & Stable)
 # ==========================================
 with tab4:
     st.subheader("⛏️ Gold, Silver & Mining Scanner")
-    st.caption("Updates every 60 seconds • Momentum + Volume scoring")
+    st.caption("Updates every 60 seconds • Basic momentum scoring")
 
     mining_tickers = [
         "GOLD", "NEM", "AEM", "WPM", "FNV", "GFI", "AU", "KGC", "PAAS", "AG",
@@ -135,21 +128,24 @@ with tab4:
                         prev_price = hist['Close'].iloc[-6] if len(hist) > 5 else current_price
                         change_pct = ((current_price - prev_price) / prev_price) * 100
                         
-                        # Basic scoring
+                        # Simple but effective scoring for miners
                         ema20 = hist['Close'].ewm(span=20).mean().iloc[-1]
                         avg_volume = hist['Volume'].rolling(20).mean().iloc[-1]
                         volume_surge = hist['Volume'].iloc[-1] > avg_volume * 1.8
                         
                         score = 0
-                        if current_price > ema20: score += 40
-                        if volume_surge: score += 35
-                        if change_pct > 0: score += 25
+                        if current_price > ema20: 
+                            score += 45
+                        if volume_surge: 
+                            score += 35
+                        if change_pct > 0.5: 
+                            score += 20
                         
                         results.append({
                             "Ticker": ticker,
                             "Price": round(current_price, 4),
                             "Change %": round(change_pct, 2),
-                            "Score": score,
+                            "Score": int(score),
                             "Volume Surge": "Yes" if volume_surge else "No"
                         })
                     except:
@@ -159,9 +155,9 @@ with tab4:
                     df = pd.DataFrame(results)
                     df = df.sort_values(by="Score", ascending=False).reset_index(drop=True)
                     
+                    # Simple clean table (no fancy styling that causes errors)
                     st.dataframe(
-                        df.style.background_gradient(subset=["Score"], cmap="viridis")
-                        .format({"Price": "${:.4f}", "Change %": "{:.2f}%"}),
+                        df,
                         use_container_width=True,
                         height=650
                     )
