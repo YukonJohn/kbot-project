@@ -1,4 +1,6 @@
 streamlit
-yfinance
-plotly
+st-gsheets-connection
 google-genai
+yfinance
+pandas
+plotly
